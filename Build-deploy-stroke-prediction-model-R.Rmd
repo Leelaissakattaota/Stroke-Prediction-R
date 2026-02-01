@@ -1,0 +1,141 @@
+---
+title: "Build and deploy a stroke prediction model using R"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: html_document
+author: "Leela"
+---
+
+# About Data Analysis Report
+
+This RMarkdown file contains the report of the data analysis done for the project on building and deploying a stroke prediction model in R. It contains analysis such as data exploration, summary statistics and building the prediction models. The final report was completed on `r date()`. 
+
+**Data Description:**
+
+According to the World Health Organization (WHO) stroke is the 2nd leading cause of death globally, responsible for approximately 11% of total deaths.
+
+This data set is used to predict whether a patient is likely to get stroke based on the input parameters like gender, age, various diseases, and smoking status. Each row in the data provides relevant information about the patient.
+
+
+# Task One: Import data and data preprocessing
+
+## Load data and install packages
+
+#install Packages
+install.packages(c("tidyverse","caret","randomForest","ROSE","pROC"))
+
+# Load the libraries we just installed
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(ROSE)
+
+# Import the data
+# We use na.strings = "N/A" to handle those specific empty values in the CSV
+stroke_data <- read.csv("healthcare-dataset-stroke-data.csv", na.strings = "N/A")
+
+# Look at the first few rows to make sure it worked
+head(stroke_data)
+
+
+
+
+# Task Two: Build prediction models
+
+# Remove ID first
+stroke_data <- stroke_data %>% select(-id)
+
+# Convert ALL character columns to Factors (Categories)
+# This is what ROSE needs to work!
+stroke_data <- stroke_data %>% 
+  mutate(across(where(is.character), as.factor))
+
+# Make sure the target 'stroke' is also a Factor
+stroke_data$stroke <- as.factor(stroke_data$stroke)
+
+# Drop rows with NA (like that BMI NA you saw in your console)
+stroke_data <- na.omit(stroke_data)
+
+# 1. Set a seed so your results are reproducible
+set.seed(123)
+
+# 2. Split the data into Training (80%) and Testing (20%)
+trainIndex <- createDataPartition(stroke_data$stroke, p = .8, list = FALSE)
+train_set <- stroke_data[trainIndex,]
+test_set <- stroke_data[-trainIndex,]
+
+# 3. Balance the Training Data
+# We MUST keep this so the model learns from a balanced dataset
+balanced_train <- ROSE(stroke ~ ., data = train_set, seed = 1)$data
+
+# 4. Build the Model (Add this line!)
+# This creates the 'rf_model' object that Task Three needs
+rf_model <- randomForest(stroke ~ ., data = balanced_train, ntree = 100)
+
+# Verify the model exists
+print(rf_model)
+
+
+
+# Task Three: Evaluate and select prediction models
+
+# 1. Use the model to predict strokes for the test set
+rf_predictions <- predict(rf_model, test_set)
+
+# 2. Compare predictions to actual results using a Confusion Matrix
+evaluation_results <- confusionMatrix(rf_predictions, test_set$stroke)
+
+# 3. See the Accuracy and Sensitivity
+print(evaluation_results)
+
+
+# Task Four: Deploy the prediction model
+
+# Save the model to your folder as a file
+saveRDS(rf_model, "stroke_prediction_model.rds")
+
+# Print a success message
+print("Model saved successfully!")
+
+
+
+
+# Task Five: Findings and Conclusions
+
+Model Success: I successfully trained a Random Forest model using a balanced dataset created with the ROSE package.
+
+Performance: The model achieved an OOB (Out-of-Bag) error rate of 14.03% during training.
+
+Evaluation: By testing the model on data it had never seen before (the 20% test set), I generated a Confusion Matrix to verify its accuracy and ability to catch actual stroke cases.
+
+Deployment: The final model is saved as stroke_prediction_model.rds, making it ready to be integrated into a web app or used for future predictions.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
